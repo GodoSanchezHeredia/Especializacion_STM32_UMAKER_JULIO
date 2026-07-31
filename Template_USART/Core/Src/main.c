@@ -1,0 +1,94 @@
+
+#include <stm32f4xx.h>
+#include "Clock_Config.h"
+#include "Gpio.h"
+#include "Systick.h"
+#include "Display.h"
+#include "ExtInt.h"
+#include "USART.h"
+#include "defines.h"
+
+/* Private includes ----------------------------------------------------------*/
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+
+/* Private typedef -----------------------------------------------------------*/
+
+
+/* Private define ------------------------------------------------------------*/
+/**
+ * 0: printf mediante el usart2
+ * 1: printf mediante el SWO
+ */
+#define USE_SWV			0
+
+#define USART2_TX		A, 2
+#define USART2_RX		A, 3
+/* Private macro -------------------------------------------------------------*/
+
+
+/* Private variables ---------------------------------------------------------*/
+
+
+/* Private function prototypes -----------------------------------------------*/
+void USART2_GPIOInit(void);
+
+
+/* Private user code ---------------------------------------------------------*/
+
+/**
+  * @brief  The application entry point.
+  * @retval int
+  */
+int main(void)
+{
+  Init_Clock_HSE();
+  SystickConfig(84000);
+  USART2_GPIOInit();
+  USART_Init(USART2,42E+6, 115200, 0);
+  printf("CONFIGURACION Godo\r\n");
+  /* Infinite loop */
+  while (1)
+  {
+    
+  }
+}
+
+
+void USART2_GPIOInit(void){
+	RCC->AHB1ENR |= GPIOX_CLOCK(USART2_TX);
+
+	GPIOX_MODER(MODE_ALTER, USART2_TX);
+	GPIOX_OSPEEDR(MODE_SPD_VHIGH, USART2_TX);
+	GPIOX_AFR(7U, USART2_TX);
+
+	GPIOX_MODER(MODE_ALTER, USART2_RX);
+	GPIOX_OSPEEDR(MODE_SPD_VHIGH, USART2_RX);
+	GPIOX_AFR(7U, USART2_RX);
+	return;
+}
+
+
+void UART_Printf(char *format,...){
+    char str[100];
+    /*Extract the the argument list using VA apis */
+    va_list args;
+    va_start(args, format);
+    vsprintf(str, format,args);
+    USART_SendData(USART2, (uint8_t*)str, strlen(str));
+    va_end(args);
+}
+
+
+/************************************************************/
+int __io_putchar(int ch){
+#if (USE_SWV== 1)
+	ITM_SendChar((uint32_t)ch);
+#else
+	uint8_t c = ch & 0xFF;
+	while(!(USART2->SR & USART_SR_TXE));  //espera hasta que usart este listo para transmitir otro byte
+	USART2->DR = c;
+#endif
+	return ch;
+}
